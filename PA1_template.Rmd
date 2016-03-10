@@ -7,19 +7,75 @@ output:
 
 
 ## Loading and preprocessing the data
-
-
+```{r, echo = TRUE}
+library(ggplot2)
+library(plyr)
+library(dplyr)
+library(lubridate)
+activity <- read.csv("C:/Users/i55802/RepData_PeerAssessment1/activity.csv", colClasses = c("numeric","character","integer"))
+```
 
 ## What is mean total number of steps taken per day?
-
-
+```{r, echo = TRUE}
+total_steps <- tapply(activity$steps, activity$date, FUN = sum, na.rm = TRUE)
+activity$date <- ymd(activity$date)
+daily_steps <- activity %>%
+        filter(!is.na(steps)) %>%
+        group_by(date) %>%
+        summarize(steps = sum(steps)) %>%
+        print
+ggplot(daily_steps, aes(x=date, y=steps))+geom_histogram(stat="identity")+xlab("Date")+ylab("Steps")+labs(title="Total Steps Per Day")
+mean(total_steps)
+median(total_steps)
+```
 
 ## What is the average daily activity pattern?
-
-
+```{r, echo = TRUE}
+daily_activity <- activity %>%
+                filter(!is.na(steps)) %>%
+                group_by(interval) %>%
+                summarize(steps = mean(steps)) %>%
+                print
+plot(daily_activity, type = "l")
+daily_activity[which.max(daily_activity$steps),]$interval
+```
 
 ## Imputing missing values
-
-
+```{r, echo = TRUE}
+missing <- sum(is.na(activity))
+missing
+new_activity <- activity %>%
+                group_by(interval) %>%
+                mutate(steps = ifelse(is.na(steps), mean(steps, na.rm = TRUE), steps))
+new_activity
+total_new <- tapply(new_activity$steps, new_activity$date, FUN = sum, na.rm = TRUE)
+new_activity$date <- ymd(new_activity$date)
+new_steps <- new_activity %>%
+                group_by(date) %>%
+                summarize(steps = sum(steps)) %>%
+                print
+ggplot(new_steps, aes(x=date, y=steps))+geom_histogram(stat="identity")+xlab("Dates")+ylab("Steps")+labs(title = "Total Steps Per Day (New)")
+mean(total_new)
+median(total_new)
+mean(total_steps) == mean(total_new)
+median(total_steps) == median(total_new)
+summary(total_new) - summary(total_steps)
+```
 
 ## Are there differences in activity patterns between weekdays and weekends?
+```{r, echo = TRUE}
+dayofweek <- function(date) {
+        if (weekdays(as.Date(date)) %in% c("Saturday", "Sunday")) {
+                "weekend"
+        } else {
+                "weekday"
+        }
+}
+new_activity$daytype <- as.factor(sapply(new_activity$date, dayofweek))
+par(mar = rep(2, 4))
+for (type in c("weekend", "weekday")) {
+        steps_type <- aggregate(steps ~ interval, data = new_activity, subset = new_activity$daytype == type, FUN = mean)
+        plot(steps_type, type = "l", main = type)
+}
+```
+
